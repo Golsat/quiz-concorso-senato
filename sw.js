@@ -1,5 +1,5 @@
 /* Service worker – Quiz Concorso Senato */
-const CACHE = 'quiz-senato-v1';
+const CACHE = 'quiz-senato-v2';
 const ASSETS = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "Fonti/Costituzione_testo_vigente_Senato.pdf", "Fonti/Regolamento_Senato_aggiornato_2022_ed_provvisoria.pdf", "Fonti/Modifiche_Regolamento_Senato_2022_scheda_sintetica.pdf", "Senato_della_Repubblica-Bando_concorso_30_posti_Segretario_parlamentare.pdf"];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
