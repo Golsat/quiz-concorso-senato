@@ -296,7 +296,7 @@ details.filt .tools{margin:0 0 12px}
       <button class="btn" style="background:rgba(255,255,255,.16)" data-go="studia">Studia per argomento</button>
     </p>
   </div>
-  <div class="hint" id="iosHint"><b>Installa l’app sul tuo iPhone.</b> In Safari tocca il pulsante <b>Condividi</b> (il quadrato con la freccia) e poi <b>«Aggiungi alla schermata Home»</b>. Si aprirà a schermo intero e funzionerà anche senza internet.<br><button class="btn ghost sm" id="hintClose">Ho capito</button></div><div id="gamHome"></div>
+  <div class="hint" id="iosHint"><span class="ht"><b>Installa l’app sul tuo iPhone.</b> In Safari tocca il pulsante <b>Condividi</b> (il quadrato con la freccia) e poi <b>«Aggiungi alla schermata Home»</b>. Si aprirà a schermo intero e funzionerà anche senza internet.</span><br><button class="btn ghost sm" id="hintClose">Ho capito</button></div><div id="gamHome"></div>
   <div class="grid g4" id="kpis"></div>
   <div class="grid g2" style="margin-top:18px">
     <div class="card"><h2>Avanzamento per argomento</h2><div id="macroBars"></div></div>
@@ -777,8 +777,14 @@ $('#bkFile').addEventListener('change',e=>{ if(e.target.files[0]) importBackup(e
 (function(){
   let dismissed=false; try{dismissed=localStorage.getItem('senato-quiz-hint')==='1';}catch(e){}
   const ios=/iphone|ipad|ipod/i.test(navigator.userAgent), standalone=window.navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
-  if(ios&&!standalone&&!dismissed) $('#iosHint').style.display='block';
-  $('#hintClose').onclick=()=>{ $('#iosHint').style.display='none'; try{localStorage.setItem('senato-quiz-hint','1');}catch(e){} };
+  const android=/android/i.test(navigator.userAgent); let deferred=null;
+  const hint=$('#iosHint'), setHint=html=>{ hint.querySelector('.ht').innerHTML=html; };
+  if(ios&&!standalone&&!dismissed) hint.style.display='block';
+  if(android&&!standalone&&!dismissed){ setHint('<b>Installa l’app sul tuo telefono.</b> In Chrome tocca il menu <b>⋮</b> (tre puntini in alto a destra) e poi <b>«Installa app»</b> (oppure «Aggiungi a schermata Home»). Si aprirà a schermo intero e funzionerà anche senza internet.'); hint.style.display='block'; }
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e; if(!standalone){ setHint('<b>Installa l’app sul tuo telefono</b> con un solo tocco: si aprirà a schermo intero e funzionerà anche senza internet.<br><button class="btn gold sm" id="hintInstall" style="margin-top:6px">⬇️ Installa l’app</button>'); hint.style.display='block';
+    $('#hintInstall').onclick=async()=>{ deferred.prompt(); try{ await deferred.userChoice; }catch(x){} deferred=null; hint.style.display='none'; }; } });
+  window.addEventListener('appinstalled',()=>{ hint.style.display='none'; toast('✅ App installata!'); });
+  $('#hintClose').onclick=()=>{ hint.style.display='none'; try{localStorage.setItem('senato-quiz-hint','1');}catch(e){} };
 })();
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
