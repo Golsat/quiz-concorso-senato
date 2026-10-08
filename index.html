@@ -517,7 +517,7 @@ function show(tab){
   $$('section.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+tab));
   $$('nav button').forEach(b=>{ if(b.dataset.tab===tab) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');});
   if(location.hash!=='#'+tab) history.replaceState(null,'','#'+tab);
-  if(tab==='home') renderHome(); if(tab==='errori') renderErr(); if(tab==='studia') renderList(true);
+  if(tab==='home') renderHome(); if(tab==='errori') renderErr(); if(tab==='studia') renderList(true,true);
   window.scrollTo({top:0});
 }
 document.addEventListener('click',e=>{const t=e.target.closest('[data-tab],[data-go]'); if(!t) return;
@@ -550,23 +550,28 @@ function cardHtml(q,opts={}){
   const s=st(q.id), area=q.a==='C'?'Costituzione':'Regolamento del Senato';
   const dlabel=['','Base','Media','Alta'][q.d];
   const name='q'+q.id+(opts.pfx||'');
-  return '<article class="q" data-id="'+q.id+'" id="'+name+'-card">'+
+  const ans=(opts.pfx!=='r'&&opts.pfx!=='e'&&s.c!==undefined&&s.c!==null);
+  return '<article class="q" data-id="'+q.id+'" id="'+name+'-card"'+(ans?' data-done="1"':'')+'>'+
    '<div class="meta"><span class="num">#'+q.id+'</span><span class="tag '+(q.a==='C'?'c':'r')+'">'+area+'</span><span>'+esc(q.m)+'</span>'+
    '<span class="d'+q.d+'">● '+dlabel+'</span>'+
    '<button class="fav" aria-pressed="'+(s.f?'true':'false')+'" aria-label="Aggiungi ai preferiti" title="Preferita">'+(s.f?'★':'☆')+'</button></div>'+
    '<h3 class="qt">'+esc(q.q)+'</h3>'+
-   '<ul class="opts">'+q.o.map((t,i)=>'<li><label class="opt"><input type="radio" name="'+name+'" value="'+i+'"><span class="l">'+L[i]+'</span><span>'+esc(t)+'</span></label></li>').join('')+'</ul>'+
+   '<ul class="opts">'+q.o.map((t,i)=>'<li><label class="opt'+(ans?' locked'+(i===q.c?' right':'')+(i===s.c&&s.c!==q.c?' wrong':''):'')+'"><input type="radio" name="'+name+'" value="'+i+'"'+(ans?' disabled':'')+(ans&&i===s.c?' checked':'')+'><span class="l">'+L[i]+'</span><span>'+esc(t)+'</span></label></li>').join('')+'</ul>'+
+   (ans?'<p style="margin:0 0 10px"><button class="btn ghost sm retry">↺ Riprova questa domanda</button></p>':'')+
    '<details class="ans"><summary>Mostra risposta e fonte</summary>'+revealHtml(q)+'</details></article>';
 }
 function wireCard(root,q){
   const card=root; const radios=$$('input[type=radio]',card), det=$('details.ans',card);
   radios.forEach(r=>r.addEventListener('change',()=>{ $$('.opt',card).forEach(o=>o.classList.remove('sel')); r.closest('.opt').classList.add('sel'); if(instantOn()) det.open=true;}));
   $('.fav',card).addEventListener('click',e=>{const b=e.currentTarget; const s=st(q.id); s.f=!s.f; b.setAttribute('aria-pressed',s.f?'true':'false'); b.textContent=s.f?'★':'☆'; save(); });
+  const rt=$('.retry',card);
+  if(rt) rt.addEventListener('click',()=>{ const s=st(q.id); delete s.c; save(); const pfx=radios[0].name.slice(('q'+q.id).length);
+    const tmp=document.createElement('div'); tmp.innerHTML=cardHtml(q,{pfx}); const nc=tmp.firstElementChild; card.replaceWith(nc); wireCard(nc,q); });
   det.addEventListener('toggle',()=>{
-    if(!det.open) return;
+    if(!det.open||card.dataset.done==='1') return; card.dataset.done='1';
     const chosen=radios.find(r=>r.checked); const s=st(q.id); const wasNew=!(s.r||s.w), wasWrong=(s.l==='w'); s.s++;
     $$('.opt',card).forEach((o,i)=>{o.classList.add('locked'); if(i===q.c) o.classList.add('right');});
-    if(chosen){ const ci=+chosen.value; if(ci===q.c){s.r++; s.l='r';} else {s.w++; s.l='w'; chosen.closest('.opt').classList.add('wrong');} }
+    if(chosen){ const ci=+chosen.value; s.c=ci; if(ci===q.c){s.r++; s.l='r';} else {s.w++; s.l='w'; chosen.closest('.opt').classList.add('wrong');} }
     radios.forEach(r=>r.disabled=true); save();
     if(chosen) gamAnswer(q,+chosen.value===q.c,wasNew,wasWrong);
   });
@@ -591,10 +596,14 @@ function applyFilters(){
     if(t){ const hay=(q.q+' '+q.o.join(' ')+' '+q.s.rif+' '+q.m+' '+q.e).toLowerCase(); if(!hay.includes(t)) return false; }
     return true;});
 }
-let oneIdx=0;
-function renderList(reset){
+let oneIdx=0, filtSig='';
+function sig(){ return ['fArea','fMacro','fDiff','fState','fText','fView'].map(id=>(($('#'+id)||{}).value)||'').join('|'); }
+function renderList(reset,keep){
   const box=$('#qList'), mode=($('#fView')||{}).value||'list';
-  if(reset){shown=PAGE; filtered=applyFilters(); oneIdx=0; if(mode==='rand') filtered=shuffle(filtered); box.innerHTML='';}
+  if(reset){ const sg=sig(), same=keep&&sg===filtSig&&filtered.length;
+    if(!same){ shown=PAGE; filtered=applyFilters(); filtSig=sg; oneIdx=0; if(mode==='rand') filtered=shuffle(filtered); }
+    else if(mode==='list'){ shown=Math.max(PAGE,shown); }
+    box.innerHTML=''; }
   if(mode!=='list'){ renderOne(); return; }
   const start=reset?0:box.children.length; const slice=filtered.slice(start,shown);
   const frag=document.createElement('div'); frag.innerHTML=slice.map(q=>cardHtml(q)).join('');
